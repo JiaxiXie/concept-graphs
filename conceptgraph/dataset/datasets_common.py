@@ -484,6 +484,86 @@ class ReplicaDataset(GradSLAMDataset):
         return embedding.permute(0, 2, 3, 1)  # (1, H, W, embedding_dim)
 
 
+
+class ARKITSceneDataset(GradSLAMDataset):
+    def __init__(
+        self,
+        config_dict,
+        basedir,
+        sequence,
+        stride: Optional[int] = None,
+        start: Optional[int] = 0,
+        end: Optional[int] = -1,
+        desired_height: Optional[int] = 480,
+        desired_width: Optional[int] = 640,
+        load_embeddings: Optional[bool] = False,
+        embedding_dir: Optional[str] = "embeddings",
+        embedding_dim: Optional[int] = 512,
+        **kwargs,
+    ):
+        self.input_folder = os.path.join(basedir, sequence)
+        instance_name = self.input_folder[-8:]
+        self.pose_path = os.path.join(self.input_folder, f"{instance_name}_frames/lowres_wide.traj")
+
+        # camera data stored path
+        files = os.listdir(f"{instance_name}_frames/lowres_wide_intrinsics")
+        camera_path = os.path.join(folder_path, files[0])
+        with open(camera_path, 'r') as file:
+            contents = file.read().strip()
+        params = [float(num) for num in contents.split()]
+
+        super().__init__(
+            config_dict,
+            stride=stride,
+            start=start,
+            end=end,
+            desired_height=desired_height,
+            desired_width=desired_width,
+            load_embeddings=load_embeddings,
+            embedding_dir=embedding_dir,
+            embedding_dim=embedding_dim,
+            **kwargs,
+        )
+
+        # get camera params and replace init, but do not have depth scale
+        width, height, fx, fy, cx, cy = params
+        self.orig_height = width
+        self.orig_width = height
+        self.fx = fx
+        self.fy = fy
+        self.cx = cx
+        self.cy = cy
+
+    def get_filepaths(self):
+        color_paths = natsorted(glob.glob(f"{self.input_folder}/{instance_name}_frames/lowres_wide/{instance_name}_*.jpg"))
+        depth_paths = natsorted(glob.glob(f"{self.input_folder}/{instance_name}_frames/lowres_depth/{instance_name}_*.jpg"))
+        embedding_paths = None
+        if self.load_embeddings:
+            embedding_paths = natsorted(
+                glob.glob(f"{self.input_folder}/{self.embedding_dir}/*.pt")
+            )
+        return color_paths, depth_paths, embedding_paths
+    
+    # need further check
+    def load_poses(self):
+        poses = []
+        with open(self.pose_path, "r") as f:
+            lines = f.readlines()
+        for i in range(self.num_imgs):
+            line = lines[i]
+            c2w = np.array(list(map(float, line.split()))).reshape(4, 4)
+            # c2w[:3, 1] *= -1
+            # c2w[:3, 2] *= -1
+            c2w = torch.from_numpy(c2w).float()
+            poses.append(c2w)
+        return poses
+
+    def read_embedding_from_file(self, embedding_file_path):
+        embedding = torch.load(embedding_file_path)
+        return embedding.permute(0, 2, 3, 1)  # (1, H, W, embedding_dim)
+        
+
+
 class ScannetDataset(GradSLAMDataset):
     def __init__(
         self,
@@ -881,7 +961,6 @@ class MultiscanDataset(GradSLAMDataset):
         desired_height: Optional[int] = 480,
         desired_width: Optional[int] = 640,
         load_embeddings: Optional[bool] = False,
-        embedding_dir: Optional[str] = "embeddings",
         embedding_dim: Optional[int] = 512,
         **kwargs,
     ):
@@ -1106,6 +1185,8 @@ def get_dataset(dataconfig, basedir, sequence, **kwargs):
         return ICLDataset(config_dict, basedir, sequence, **kwargs)
     elif config_dict["dataset_name"].lower() in ["replica"]:
         return ReplicaDataset(config_dict, basedir, sequence, **kwargs)
+    elif config_dict["dataset_name"].lower() in ["arkitscene"]:
+        return ARKITSceneDataset(config_dict, basedir, sequence, **kwargs)
     elif config_dict["dataset_name"].lower() in ["azure", "azurekinect"]:
         return AzureKinectDataset(config_dict, basedir, sequence, **kwargs)
     elif config_dict["dataset_name"].lower() in ["scannet"]:
