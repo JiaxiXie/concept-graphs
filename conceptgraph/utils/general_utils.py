@@ -443,6 +443,7 @@ def make_vlm_edges_and_captions(image, curr_det, obj_classes, detection_class_la
     )
     
     edges = []
+    captions = []
     edge_image = None
     if make_edges_flag:
         vis_save_path_for_vlm = get_vlm_annotated_image_path(det_exp_vis_path, color_path)
@@ -463,7 +464,9 @@ def make_vlm_edges_and_captions(image, curr_det, obj_classes, detection_class_la
         captions = get_obj_captions_from_image_gpt4v(openai_client, vis_save_path_for_vlm, label_list)
         edge_image = plot_edges_from_vlm(annotated_image_for_vlm, edges, filtered_detections, obj_classes, labels, sorted_indices, save_path=vis_save_path_for_vlm_edges)
     
+    # return labels, edges, edge_image, captions
     return labels, edges, edge_image, captions
+
     
 def handle_rerun_saving(use_rerun, save_rerun, exp_suffix, exp_out_path):
     # Save the rerun output if needed
@@ -860,6 +863,3 @@ def vis_render_image(objects, obj_classes, obj_renderer, image_original_pil, adj
     if is_final_frame:
         # Save the video
         save_video_from_frames(frames, exp_out_path, exp_suffix)
-
-
-

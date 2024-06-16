@@ -110,7 +110,7 @@ def main(cfg : DictConfig):
     orr = OptionalReRun()
     orr.set_use_rerun(cfg.use_rerun)
     orr.init("realtime_mapping")
-    orr.spawn()
+    orr.serve()
 
     owandb = OptionalWandB()
     owandb.set_use_wandb(cfg.use_wandb)
@@ -160,6 +160,7 @@ def main(cfg : DictConfig):
         bg_classes=detections_exp_cfg['bg_classes'], 
         skip_bg=detections_exp_cfg['skip_bg']
     )
+    print(detections_exp_cfg)
 
     # if we need to do detections
     run_detections = check_run_detections(cfg.force_detection, det_exp_path)
@@ -185,7 +186,7 @@ def main(cfg : DictConfig):
         # Set the classes for the detection model
         detection_model.set_classes(obj_classes.get_classes_arr())
 
-        openai_client = get_openai_client()
+        # openai_client = get_openai_client()
         
     else:
         print("\n".join(["NOT Running detections..."] * 10))
@@ -269,7 +270,8 @@ def main(cfg : DictConfig):
             )
             
             # Make the edges
-            labels, edges, edge_image, captions = make_vlm_edges_and_captions(image, curr_det, obj_classes, detection_class_labels, det_exp_vis_path, color_path, cfg.make_edges, openai_client)
+            # labels, edges, edge_image, captions = make_vlm_edges_and_captions(image, curr_det, obj_classes, detection_class_labels, det_exp_vis_path, color_path, cfg.make_edges, openai_client)
+            labels, edges, edge_image, captions = make_vlm_edges_and_captions(image, curr_det, obj_classes, detection_class_labels, det_exp_vis_path, color_path, False, None)
 
             image_crops, image_feats, text_feats = compute_clip_features_batched(
                 image_rgb, curr_det, clip_model, clip_preprocess, clip_tokenizer, obj_classes.get_classes_arr(), cfg.device)
